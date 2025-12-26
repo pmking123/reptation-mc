@@ -16,16 +16,21 @@ For a system with $M$ chains of length $N$:
 
 ### 1. RMS End-to-End Distance ($\langle R^2 \rangle^{1/2}$)
 The instantaneous root-mean-square distance between the head and tail of all chains:
+
 $$\text{RMS} = \sqrt{\frac{1}{M} \sum_{i=1}^{M} |\mathbf{R}_i(t)|^2}$$
+
 *Calculation Note:* $\mathbf{R}_i(t)$ is the "unwrapped" vector, meaning it accounts for crossings of the Periodic Boundary Conditions to represent the true physical length of the chain.
 
 ### 2. Vector Autocorrelation ($C(t)$)
 Measures the loss of memory of the initial chain configuration. It is the ensemble-averaged dot product of the current end-to-end vector with the initial vector, normalized:
+
 $$C(t) = \frac{\sum_{i=1}^{M} \mathbf{R}_i(t) \cdot \mathbf{R}_i(0)}{\sum_{i=1}^{M} \mathbf{R}_i(0) \cdot \mathbf{R}_i(0)}$$
+
 In the reptation regime, this decay tracks the time it takes for a chain to escape its initial primitive path "tube."
 
 ### 3. Radius of Gyration ($R_g$)
 Calculated from the distribution of segments relative to the chain's center of mass:
+
 $$R_g^2 = \frac{1}{M} \sum_{i=1}^{M} \left( \frac{1}{N} \sum_{j=1}^{N} (\mathbf{r}_{i,j} - \mathbf{r}_{i,cm})^2 \right)$$
 
 ## 🚀 Key Features
