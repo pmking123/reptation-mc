@@ -2,19 +2,6 @@
 
 A high-performance, web-based visualization and analysis tool for **Polymer Reptation Monte Carlo (MC) Simulations**. This application simulates the movement of polymer chains within a crowded environment (quenched obstacles) on a 2D square lattice using Periodic Boundary Conditions (PBC).
 
-## Getting Started
-
-- **Prereqs:** Node.js ≥ 20 (tested with LTS 24.x) and npm.
-- **Install deps:** `npm install`
-- **Run dev server:** `npm run dev` then open the shown localhost URL (default http://localhost:3000).
-- **Build:** `npm run build`; **Preview build:** `npm run preview`.
-- **AI insights:** set an environment variable `GEMINI_API_KEY` before running if you want the "Analyze Summary Statistics" button to work. Without it, the rest of the app still runs.
-
-## Notes
-
-- The app mounts from `index.tsx`; `index.html` now only loads Tailwind CDN and the Vite entry script.
-- If you see a blank page, check the browser console for errors (missing env key, blocked network calls, etc.).
-
 ## ⚛️ Physical Model
 
 The simulation implements the **Reptation Model** to describe the thermal motion of long linear polymer chains in a confined environment.
