@@ -1,0 +1,5 @@
+{
+  "name": "Polymer Reptation MC Simulator",
+  "description": "A high-performance Monte Carlo simulation of polymer chains moving via reptation in a lattice with obstacles and periodic boundary conditions.",
+  "requestFramePermissions": []
+}
