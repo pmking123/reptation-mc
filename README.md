@@ -70,4 +70,53 @@ $$R_g^2 = \frac{1}{M} \sum_{i=1}^{M} \left( \frac{1}{N} \sum_{j=1}^{N} (\mathbf{
 - **Data Export:** Generate comprehensive Markdown lab reports for documentation.
 
 ---
+
+## 💻 Running Locally
+
+To run this laboratory simulation on your local machine, follow these steps:
+
+### 1. Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- A [Gemini API Key](https://aistudio.google.com/app/apikey) for the AI analysis features.
+
+### 2. Installation
+Clone or download this repository and install the dependencies:
+```bash
+# Initialize npm if you haven't already
+npm init -y
+
+# Install required libraries
+npm install vite react react-dom recharts @google/genai @types/react @types/react-dom
+```
+
+### 3. Environment Setup
+The app uses `process.env.API_KEY` for Gemini integration. Create a `.env` file in the project root:
+```env
+VITE_API_KEY=your_gemini_api_key_here
+```
+
+### 4. Vite Configuration
+Create a `vite.config.ts` file in the root directory to bridge the environment variables to the app:
+```typescript
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    plugins: [react()],
+    define: {
+      'process.env.API_KEY': JSON.stringify(env.VITE_API_KEY)
+    }
+  };
+});
+```
+
+### 5. Start Development Server
+```bash
+npx vite
+```
+The app will be available at `http://localhost:5173`.
+
+---
 Polymer Reptation Lab Simulator v1.1
