@@ -52,23 +52,5 @@ Measures the loss of memory of the initial chain configuration.
 2. **Key:** Add `VITE_API_KEY=your_key` to a `.env` file.
 3. **Start:** `npx vite`
 
-## 🐍 Standalone Python Version
-
-A standalone Python implementation using Tkinter and Matplotlib is included as `standalone_python_version.py`.
-
-### Running the Python Version:
-1. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. **Set API Key (Optional for AI features):**
-   ```bash
-   export API_KEY=your_gemini_api_key
-   ```
-3. **Run:**
-   ```bash
-   python standalone_python_version.py
-   ```
-
 ---
 Polymer Reptation Lab Simulator v1.1

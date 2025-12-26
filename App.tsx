@@ -9,10 +9,10 @@ import Stats from './components/Stats';
 
 const INITIAL_PARAMS: SimulationParams = {
   latticeSize: 50,
-  numChains: 20,
-  chainLength: 15,
-  obstacleConcentration: 0.1,
-  simulationSpeed: 50,
+  numChains: 15,
+  chainLength: 20,
+  obstacleConcentration: 0.12,
+  simulationSpeed: 100,
   maxSteps: 1000000
 };
 
@@ -20,16 +20,9 @@ const App: React.FC = () => {
   const [params, setParams] = useState<SimulationParams>(INITIAL_PARAMS);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stats, setStats] = useState<SimulationStats>({ 
-    steps: 0, 
-    rmsEndToEnd: 0, 
-    meanEndToEnd: 0,
-    radiusOfGyration: 0, 
-    meanRadiusOfGyration: 0,
-    successfulMoves: 0, 
-    acceptanceRatio: 0,
-    autocorrelation: 1,
-    rawAutocorrelation: 0,
-    isFinished: false 
+    steps: 0, rmsEndToEnd: 0, meanEndToEnd: 0, radiusOfGyration: 0, 
+    meanRadiusOfGyration: 0, successfulMoves: 0, acceptanceRatio: 0,
+    autocorrelation: 1, rawAutocorrelation: 0, isFinished: false 
   });
   const [history, setHistory] = useState<{ step: number; rms: number; rg: number; autocorrelation: number }[]>([]);
   const [explanation, setExplanation] = useState<string>('');
@@ -45,7 +38,6 @@ const App: React.FC = () => {
   const animate = useCallback(() => {
     if (isPlaying) {
       const currentStats = engineRef.current.getStats();
-      
       if (currentStats.isFinished) {
         setIsPlaying(false);
         setStats(currentStats);
@@ -60,15 +52,10 @@ const App: React.FC = () => {
       setStats(updatedStats);
       setDisplayChains([...engineRef.current.getChains()]);
 
-      if (updatedStats.steps - lastHistoryUpdateRef.current >= 500) {
+      if (updatedStats.steps - lastHistoryUpdateRef.current >= 200) {
         setHistory(prev => [
           ...prev, 
-          { 
-            step: updatedStats.steps, 
-            rms: updatedStats.rmsEndToEnd, 
-            rg: updatedStats.radiusOfGyration, 
-            autocorrelation: updatedStats.autocorrelation 
-          }
+          { step: updatedStats.steps, rms: updatedStats.rmsEndToEnd, rg: updatedStats.radiusOfGyration, autocorrelation: updatedStats.autocorrelation }
         ].slice(-200));
         lastHistoryUpdateRef.current = updatedStats.steps;
       }
@@ -78,30 +65,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (requestRef.current !== null) {
-        cancelAnimationFrame(requestRef.current);
-      }
-    };
+    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
   }, [animate]);
 
   const handleParamChange = (updates: Partial<SimulationParams>) => {
     const newParams = { ...params, ...updates };
     setParams(newParams);
-    
-    // If lattice/topology changes, recreate the engine (destructive reset)
     if ('latticeSize' in updates || 'numChains' in updates || 'chainLength' in updates || 'obstacleConcentration' in updates) {
       engineRef.current = new SimulationEngine(newParams);
       setDisplayChains(engineRef.current.getChains());
       setDisplayObstacles(new Set(engineRef.current.getObstacles()));
-      setHistory([]);
-      lastHistoryUpdateRef.current = 0;
-      setStats(engineRef.current.getStats());
-      setIsPlaying(false);
+      setHistory([]); lastHistoryUpdateRef.current = 0;
+      setStats(engineRef.current.getStats()); setIsPlaying(false);
     } else {
-      // If only limits/speed change, just update internal state without reset
       engineRef.current.updateParams(newParams);
-      // Immediately check stats to update isFinished status in UI
       setStats(engineRef.current.getStats());
     }
   };
@@ -111,183 +88,132 @@ const App: React.FC = () => {
     setDisplayChains([...engineRef.current.getChains()]);
     setDisplayObstacles(new Set(engineRef.current.getObstacles()));
     setStats(engineRef.current.getStats());
-    setHistory([]);
-    lastHistoryUpdateRef.current = 0;
+    setHistory([]); lastHistoryUpdateRef.current = 0;
     setIsPlaying(false);
-  };
-
-  const handleStop = () => {
-    setIsPlaying(false);
-  };
-
-  const downloadReport = () => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `reptation-lab-report-${timestamp}.md`;
-    const content = `# Polymer Reptation Lab Report
-Generated on: ${new Date().toLocaleString()}
-
-## Simulation Parameters
-- Lattice Size: ${params.latticeSize}x${params.latticeSize}
-- Number of Chains: ${params.numChains}
-- Chain Length (N): ${params.chainLength}
-- Obstacle Concentration: ${(params.obstacleConcentration * 100).toFixed(1)}%
-- Max Steps Targeted: ${params.maxSteps.toLocaleString()}
-
-## Summary Statistics (Ensemble Averages)
-- Total Steps: ${stats.steps.toLocaleString()}
-- Successful Moves: ${stats.successfulMoves.toLocaleString()}
-- Acceptance Ratio: ${(stats.acceptanceRatio * 100).toFixed(4)}%
-- Mean End-to-End ⟨R⟩: ${stats.meanEndToEnd.toFixed(4)}
-- RMS End-to-End ⟨R²⟩½: ${stats.rmsEndToEnd.toFixed(4)}
-- RMS Radius of Gyration ⟨Rg²⟩½: ${stats.radiusOfGyration.toFixed(4)}
-- Autocorrelation ⟨R(t)·R(0)⟩ / ⟨R(0)²⟩: ${stats.autocorrelation.toFixed(4)}
-- Raw Autocorrelation ⟨R(t)·R(0)⟩: ${stats.rawAutocorrelation.toFixed(4)}
-
-## AI Physical Analysis
-${explanation}
-
----
-Polymer Reptation Lab Simulator v1.1
-`;
-
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const getGeminiInsight = async () => {
     setIsLoadingInsight(true);
     try {
-      // Fix: Initialize GoogleGenAI instance right before making the call as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Perform a high-level statistical analysis for a polymer physicist of this simulation:
-      - Lattice Size: ${params.latticeSize}
-      - Number of Chains: ${params.numChains}
-      - Chain Length (N): ${params.chainLength}
-      - Obstacle Concentration: ${params.obstacleConcentration * 100}%
-      - Total Steps: ${stats.steps}
-      - RMS End-to-End distance: ${stats.rmsEndToEnd.toFixed(4)}
-      - End-to-End Vector Autocorrelation: ${stats.autocorrelation.toFixed(4)}
-      - Acceptance Ratio: ${stats.acceptanceRatio.toFixed(4)}
+      const prompt = `Analyze the following polymer reptation Monte Carlo simulation results:
+      - Lattice: ${params.latticeSize}x${params.latticeSize}
+      - Chains: ${params.numChains}, Length (N): ${params.chainLength}
+      - Obstacle Density: ${params.obstacleConcentration * 100}%
+      - Sweeps Completed: ${stats.steps}
+      - Current RMS End-to-End: ${stats.rmsEndToEnd.toFixed(3)}
+      - Current Vector Autocorrelation: ${stats.autocorrelation.toFixed(3)}
+      - Acceptance Ratio: ${(stats.acceptanceRatio * 100).toFixed(2)}%
       
-      Focus on scaling laws, the impact of obstacle concentration on reptation tube width, and specifically discuss the relaxation time indicated by the autocorrelation decay. Does the correlation drop toward zero, or is the chain still "remembering" its initial configuration?`;
+      Explain the physical significance of the autocorrelation decay. If it's still near 1.0, what does that say about the relaxation time relative to the simulation duration? Mention how the obstacle density affects the 'tube' width in the De Gennes reptation model. Use professional physics terminology.`;
 
-      // Fix: Used gemini-3-pro-preview for complex STEM analysis task
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: prompt
+        contents: prompt,
+        config: {
+          thinkingConfig: { thinkingBudget: 4096 }
+        }
       });
-      setExplanation(response.text || "No insights available.");
+      setExplanation(response.text || "Insight unavailable.");
     } catch (err) {
       console.error(err);
-      setExplanation("Failed to fetch AI insights. Ensure your simulation has data and API key is valid.");
+      setExplanation("Analysis failed. Please check your connection.");
     } finally {
       setIsLoadingInsight(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-8 font-sans text-slate-100">
-      <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
-            Polymer Reptation Lab
-          </h1>
-          <p className="text-slate-400 mt-1 flex items-center gap-2">
-            Monte Carlo Simulation on Square Lattice (PBC)
-            <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-            <span className="text-emerald-500 font-mono text-xs">{params.maxSteps.toLocaleString()} Steps Limit</span>
-          </p>
-        </div>
-        <button 
-          onClick={getGeminiInsight}
-          disabled={isLoadingInsight || stats.steps === 0}
-          className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-full font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
-        >
-          {isLoadingInsight ? (
-            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-          ) : '✨ Analyze Summary Statistics'}
-        </button>
-      </header>
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 selection:bg-emerald-500/30">
+      <div className="max-w-7xl mx-auto flex flex-col gap-8">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-white to-slate-500">
+              POLYMER REPTATION <span className="text-emerald-500">LAB</span>
+            </h1>
+            <p className="text-slate-500 text-sm font-medium uppercase tracking-widest">
+              Lattice Dynamics & Topological Constraint Simulation
+            </p>
+          </div>
+          <div className="flex gap-3">
+             <button 
+              onClick={getGeminiInsight}
+              disabled={isLoadingInsight || stats.steps < 1000}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-20 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+            >
+              {isLoadingInsight ? <span className="animate-spin text-lg">⚙️</span> : '✨ Physics Analysis'}
+            </button>
+          </div>
+        </header>
 
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <LatticeCanvas 
-            chains={displayChains} 
-            obstacles={displayObstacles} 
-            latticeSize={params.latticeSize} 
-          />
-          <Stats stats={stats} history={history} maxSteps={params.maxSteps} />
-          
-          {explanation && (
-            <div className="p-6 bg-slate-800 rounded-xl border-l-4 border-indigo-500 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-indigo-400 font-bold flex items-center gap-2">
-                  <span className="text-lg">⚛️</span> Physics Summary Analysis
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 flex flex-col gap-8">
+            <LatticeCanvas chains={displayChains} obstacles={displayObstacles} latticeSize={params.latticeSize} />
+            <Stats stats={stats} history={history} maxSteps={params.maxSteps} />
+            
+            {explanation && (
+              <div className="p-8 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+                <h3 className="text-indigo-400 font-black mb-4 uppercase tracking-tighter flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">P</span>
+                  Theoretical Interpretation
                 </h3>
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={downloadReport}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
-                    title="Download Markdown Report"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Download Report
-                  </button>
-                  <button onClick={() => setExplanation('')} className="text-slate-500 hover:text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                <div className="text-slate-400 leading-relaxed text-sm font-light prose prose-invert max-w-none">
+                  {explanation}
                 </div>
               </div>
-              <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm font-light prose prose-invert max-w-none">
-                {explanation}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="p-5 bg-slate-900/80 rounded-xl border border-slate-800 shadow-inner">
-            <h3 className="font-bold text-slate-300 mb-3 text-xs uppercase tracking-widest">Quick Legend</h3>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <span className="w-3 h-3 bg-red-500 rounded-sm shadow-sm shadow-red-500/50"></span>
-                <span>Obstacles</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <span className="w-3 h-3 bg-blue-400 rounded-full shadow-sm shadow-blue-400/50"></span>
-                <span>Polymer Head</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <span className="w-4 h-1 bg-blue-400 rounded-full"></span>
-                <span>Chain Segment</span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <Controls 
-            params={params} 
-            onChange={handleParamChange} 
-            onReset={handleReset} 
-            onStop={handleStop}
-            onTogglePlay={() => setIsPlaying(!isPlaying)}
-            isPlaying={isPlaying}
-            isFinished={stats.isFinished}
-          />
+          <aside className="lg:col-span-4 flex flex-col gap-6">
+            <Controls 
+              params={params} onChange={handleParamChange} onReset={handleReset} 
+              onStop={() => setIsPlaying(false)} onTogglePlay={() => setIsPlaying(!isPlaying)}
+              isPlaying={isPlaying} isFinished={stats.isFinished}
+            />
+            
+            <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800">
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 text-center">Visual Legend</h4>
+              <div className="space-y-6">
+                <LegendItem 
+                  icon={<div className="w-4 h-4 bg-red-500 rounded-sm shadow-[0_0_8px_rgba(239,68,68,0.5)]" />}
+                  label="Quenched Obstacles" 
+                  desc="Static geometric constraints." 
+                />
+                <LegendItem 
+                  icon={<div className="w-10 h-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />}
+                  label="Reptating Chain" 
+                  desc="Contiguous line segment model." 
+                />
+                <LegendItem 
+                  icon={<div className="w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-emerald-300 ring-offset-2 ring-offset-slate-900 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />}
+                  label="Chain Head" 
+                  desc="Active migration point (solid circle)." 
+                />
+                <div className="pt-4 border-t border-slate-800">
+                  <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                    Reptation describes the thermal motion of long polymers in a crowded environment. 
+                    The chain is topologically constrained to move within a 'tube'.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
-      </main>
-
-      <footer className="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
-        Polymer Reptation Lab • Explicit Step Control & Detailed MC Statistics • Engine v1.1
-      </footer>
+      </div>
     </div>
   );
 };
+
+const LegendItem = ({ icon, label, desc }: { icon: React.ReactNode; label: string; desc: string }) => (
+  <div className="flex gap-4 items-center">
+    <div className="w-12 flex justify-center shrink-0">
+      {icon}
+    </div>
+    <div className="flex-1">
+      <p className="text-xs font-bold text-slate-200">{label}</p>
+      <p className="text-[10px] text-slate-500 leading-tight">{desc}</p>
+    </div>
+  </div>
+);
 
 export default App;

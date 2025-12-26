@@ -17,54 +17,50 @@ const LatticeCanvas: React.FC<LatticeCanvasProps> = ({ chains, obstacles, lattic
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const size = Math.min(canvas.width, canvas.height);
+    const size = canvas.width;
     const cellSize = size / latticeSize;
 
-    // Clear background
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Background
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, size, size);
 
-    // Draw grid lines (optional for performance)
-    if (latticeSize <= 50) {
-      ctx.strokeStyle = '#334155';
+    // Subtle Grid
+    if (latticeSize <= 60) {
+      ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= latticeSize; i++) {
         ctx.beginPath();
-        ctx.moveTo(i * cellSize, 0);
-        ctx.lineTo(i * cellSize, size);
-        ctx.stroke();
+        ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, size); ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(0, i * cellSize);
-        ctx.lineTo(size, i * cellSize);
-        ctx.stroke();
+        ctx.moveTo(0, i * cellSize); ctx.lineTo(size, i * cellSize); ctx.stroke();
       }
     }
 
-    // Draw Obstacles
+    // Obstacles - Glowing Bricks
+    ctx.shadowBlur = 0;
     ctx.fillStyle = '#ef4444';
     obstacles.forEach(key => {
       const [x, y] = key.split(',').map(Number);
-      ctx.fillRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
+      ctx.fillRect(x * cellSize + 0.5, y * cellSize + 0.5, cellSize - 1, cellSize - 1);
     });
 
-    // Draw Chains
-    const colors = [
-      '#60a5fa', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#2dd4bf'
-    ];
+    // Chains
+    const colors = ['#60a5fa', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#2dd4bf'];
 
     chains.forEach((chain, idx) => {
-      ctx.strokeStyle = colors[idx % colors.length];
-      ctx.fillStyle = colors[idx % colors.length];
+      const color = colors[idx % colors.length];
+      ctx.strokeStyle = color;
       ctx.lineWidth = Math.max(2, cellSize * 0.4);
-      ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
-      // Draw segments
+      // Glow effect for chains
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = color;
+
       for (let i = 0; i < chain.length - 1; i++) {
         const p1 = chain[i];
         const p2 = chain[i + 1];
-
-        // Check for periodic boundary crossing
         const dx = Math.abs(p1.x - p2.x);
         const dy = Math.abs(p1.y - p2.y);
 
@@ -76,24 +72,29 @@ const LatticeCanvas: React.FC<LatticeCanvasProps> = ({ chains, obstacles, lattic
         }
       }
 
-      // Draw Head
+      // Chain Head
       if (chain.length > 0) {
         const head = chain[0];
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(head.x * cellSize + cellSize/2, head.y * cellSize + cellSize/2, cellSize/2.5, 0, Math.PI * 2);
+        ctx.arc(head.x * cellSize + cellSize / 2, head.y * cellSize + cellSize / 2, cellSize / 2.2, 0, Math.PI * 2);
         ctx.fill();
       }
     });
+    
+    // Reset shadow
+    ctx.shadowBlur = 0;
 
   }, [chains, obstacles, latticeSize]);
 
   return (
-    <div className="flex justify-center items-center bg-slate-900 rounded-xl overflow-hidden shadow-2xl p-4">
+    <div className="flex justify-center items-center bg-slate-900 rounded-2xl overflow-hidden shadow-inner border border-slate-800 p-2">
       <canvas 
         ref={canvasRef} 
         width={600} 
         height={600} 
-        className="max-w-full h-auto aspect-square border border-slate-700 rounded-lg"
+        className="max-w-full h-auto aspect-square rounded-lg cursor-crosshair"
       />
     </div>
   );

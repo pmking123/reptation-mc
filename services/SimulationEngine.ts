@@ -7,7 +7,8 @@ export class SimulationEngine {
   private initialR0: { x: number; y: number }[] = [];
   private initialR0SquaredSum = 0;
   private obstacles: Set<string> = new Set();
-  private occupied: Set<string> = new Set();
+  // Using a Map to track occupancy counts to handle multiple segments on one site (if needed) or faster lookups
+  private occupied: Map<string, number> = new Map();
   private steps = 0;
   private successfulMoves = 0;
 
@@ -29,13 +30,15 @@ export class SimulationEngine {
     this.initialR0 = [];
     this.initialR0SquaredSum = 0;
 
+    const L = this.params.latticeSize;
+
     // Initialize Obstacles
-    const totalSites = this.params.latticeSize * this.params.latticeSize;
+    const totalSites = L * L;
     const numObstacles = Math.floor(totalSites * this.params.obstacleConcentration);
     let placed = 0;
     while (placed < numObstacles) {
-      const x = Math.floor(Math.random() * this.params.latticeSize);
-      const y = Math.floor(Math.random() * this.params.latticeSize);
+      const x = Math.floor(Math.random() * L);
+      const y = Math.floor(Math.random() * L);
       const key = `${x},${y}`;
       if (!this.obstacles.has(key)) {
         this.obstacles.add(key);
@@ -43,35 +46,28 @@ export class SimulationEngine {
       }
     }
 
-    // Initialize Chains with Guaranteed Length
+    // Initialize Chains with Grow-or-Retry
     for (let i = 0; i < this.params.numChains; i++) {
       let chainFound = false;
-      // Retry chain placement up to 100 times if it gets stuck
-      for (let attempt = 0; attempt < 100; attempt++) {
+      for (let attempt = 0; attempt < 200; attempt++) {
         const tempChain: PolymerChain = [];
-        const localOccupied: string[] = [];
+        const startX = Math.floor(Math.random() * L);
+        const startY = Math.floor(Math.random() * L);
         
-        const startX = Math.floor(Math.random() * this.params.latticeSize);
-        const startY = Math.floor(Math.random() * this.params.latticeSize);
-        
-        if (this.isBlocked(startX, startY)) continue;
+        if (this.isSiteOccupied(startX, startY)) continue;
         
         tempChain.push({ x: startX, y: startY });
-        const startKey = `${startX},${startY}`;
-        this.occupied.add(startKey);
-        localOccupied.push(startKey);
+        this.incrementOccupancy(startX, startY);
 
         let growthFailed = false;
         for (let j = 1; j < this.params.chainLength; j++) {
           const last = tempChain[tempChain.length - 1];
-          const neighbors = this.getNeighbors(last.x, last.y).filter(p => !this.isBlocked(p.x, p.y));
+          const neighbors = this.getNeighbors(last.x, last.y).filter(p => !this.isSiteOccupied(p.x, p.y));
           
           if (neighbors.length > 0) {
             const next = neighbors[Math.floor(Math.random() * neighbors.length)];
             tempChain.push(next);
-            const nextKey = `${next.x},${next.y}`;
-            this.occupied.add(nextKey);
-            localOccupied.push(nextKey);
+            this.incrementOccupancy(next.x, next.y);
           } else {
             growthFailed = true;
             break;
@@ -83,22 +79,45 @@ export class SimulationEngine {
           chainFound = true;
           break;
         } else {
-          // Cleanup occupied markers if this chain attempt failed
-          localOccupied.forEach(k => this.occupied.delete(k));
+          // Rollback
+          tempChain.forEach(p => this.decrementOccupancy(p.x, p.y));
         }
-      }
-      
-      if (!chainFound) {
-        console.warn(`Could not place chain ${i} after 100 attempts. The lattice might be too crowded.`);
       }
     }
 
-    // Capture initial configuration for autocorrelation
+    // Capture initial configuration
     this.chains.forEach(chain => {
       const r0 = this.getUnwrappedEndToEnd(chain);
       this.initialR0.push(r0);
       this.initialR0SquaredSum += (r0.x * r0.x + r0.y * r0.y);
     });
+  }
+
+  private incrementOccupancy(x: number, y: number) {
+    const key = `${x},${y}`;
+    this.occupied.set(key, (this.occupied.get(key) || 0) + 1);
+  }
+
+  private decrementOccupancy(x: number, y: number) {
+    const key = `${x},${y}`;
+    const count = this.occupied.get(key) || 0;
+    if (count <= 1) this.occupied.delete(key);
+    else this.occupied.set(key, count - 1);
+  }
+
+  private isSiteOccupied(x: number, y: number): boolean {
+    const key = `${x},${y}`;
+    return this.obstacles.has(key) || this.occupied.has(key);
+  }
+
+  private getNeighbors(x: number, y: number): Point[] {
+    const L = this.params.latticeSize;
+    return [
+      { x: (x + 1) % L, y },
+      { x: (x - 1 + L) % L, y },
+      { x, y: (y + 1) % L },
+      { x, y: (y - 1 + L) % L }
+    ];
   }
 
   private getUnwrappedEndToEnd(chain: PolymerChain): { x: number; y: number } {
@@ -116,32 +135,12 @@ export class SimulationEngine {
     return { x: rx, y: ry };
   }
 
-  private isBlocked(x: number, y: number): boolean {
-    const key = `${x},${y}`;
-    return this.obstacles.has(key) || this.occupied.has(key);
-  }
-
-  private getNeighbors(x: number, y: number): Point[] {
-    const L = this.params.latticeSize;
-    return [
-      { x: (x + 1) % L, y },
-      { x: (x - 1 + L) % L, y },
-      { x, y: (y + 1) % L },
-      { x, y: (y - 1 + L) % L }
-    ];
-  }
-
   public step() {
     if (this.steps >= this.params.maxSteps) return;
-    
-    // In Monte Carlo terminology, 1 "Step" (or Sweep) = N attempts where N is the number of chains.
-    // This makes the time limit more physically intuitive.
     const attempts = Math.max(1, this.params.numChains);
     for (let i = 0; i < attempts; i++) {
       this.reptate();
     }
-    
-    // Increment steps once per sweep
     this.steps++;
   }
 
@@ -149,18 +148,27 @@ export class SimulationEngine {
     if (this.chains.length === 0) return;
     const chainIdx = Math.floor(Math.random() * this.chains.length);
     const chain = this.chains[chainIdx];
-    if (chain.length < 2) return;
-
+    
     const isHead = Math.random() < 0.5;
-    const endPos = isHead ? chain[0] : chain[chain.length - 1];
-    const removePos = isHead ? chain[chain.length - 1] : chain[0];
+    const headPos = isHead ? chain[0] : chain[chain.length - 1];
+    const tailPos = isHead ? chain[chain.length - 1] : chain[0];
 
-    const neighbors = this.getNeighbors(endPos.x, endPos.y);
-    const validMoves = neighbors.filter(p => !this.isBlocked(p.x, p.y));
+    const neighbors = this.getNeighbors(headPos.x, headPos.y);
+    // Important: A reptation move into the site currently occupied by the TAIL is valid, 
+    // because the tail moves out of that site in the same step.
+    const validMoves = neighbors.filter(p => {
+      const key = `${p.x},${p.y}`;
+      if (this.obstacles.has(key)) return false;
+      const occCount = this.occupied.get(key) || 0;
+      if (occCount === 0) return true;
+      // If the target site is occupied, it's only valid if it's ONLY occupied by the tail we are about to remove
+      if (p.x === tailPos.x && p.y === tailPos.y && occCount === 1) return true;
+      return false;
+    });
 
     if (validMoves.length > 0) {
       const nextPos = validMoves[Math.floor(Math.random() * validMoves.length)];
-      this.occupied.delete(`${removePos.x},${removePos.y}`);
+      this.decrementOccupancy(tailPos.x, tailPos.y);
       if (isHead) {
         chain.unshift(nextPos);
         chain.pop();
@@ -168,7 +176,7 @@ export class SimulationEngine {
         chain.push(nextPos);
         chain.shift();
       }
-      this.occupied.add(`${nextPos.x},${nextPos.y}`);
+      this.incrementOccupancy(nextPos.x, nextPos.y);
       this.successfulMoves++;
     }
   }
@@ -177,69 +185,57 @@ export class SimulationEngine {
   public getObstacles() { return this.obstacles; }
 
   public getStats(): SimulationStats {
-    let sumR = 0, sumR2 = 0, sumRg2 = 0, sumRg = 0, sumDotProduct = 0;
-    let validCount = 0;
+    let sumR2 = 0, sumRg2 = 0, sumDotProduct = 0;
+    let sumR = 0, sumRg = 0;
+    const L = this.params.latticeSize;
 
     this.chains.forEach((chain, idx) => {
-      if (chain.length < 2) return;
-      validCount++;
       const r_unwrapped = this.getUnwrappedEndToEnd(chain);
       const r2 = r_unwrapped.x * r_unwrapped.x + r_unwrapped.y * r_unwrapped.y;
-      const r_mag = Math.sqrt(r2);
-      sumR += r_mag;
       sumR2 += r2;
+      sumR += Math.sqrt(r2);
 
-      const L = this.params.latticeSize;
-      let unwrappedChain: Point[] = [{ x: 0, y: 0 }];
-      let cx = 0, cy = 0;
-
+      // Simple unwrapping for Rg calculation
+      let ux = 0, uy = 0;
+      let currX = 0, currY = 0;
+      let chainUX = [0], chainUY = [0];
       for (let i = 0; i < chain.length - 1; i++) {
-        const p1 = chain[i];
-        const p2 = chain[i+1];
-        let dx = p2.x - p1.x;
-        let dy = p2.y - p1.y;
+        const p1 = chain[i], p2 = chain[i+1];
+        let dx = p2.x - p1.x, dy = p2.y - p1.y;
         if (dx > 1) dx -= L; else if (dx < -1) dx += L;
         if (dy > 1) dy -= L; else if (dy < -1) dy += L;
-        
-        const last = unwrappedChain[unwrappedChain.length - 1];
-        const next = { x: last.x + dx, y: last.y + dy };
-        unwrappedChain.push(next);
-        cx += next.x;
-        cy += next.y;
+        currX += dx; currY += dy;
+        chainUX.push(currX); chainUY.push(currY);
       }
-      
-      const N = chain.length;
-      const avgX = cx / N;
-      const avgY = cy / N;
-      let rg2_sum = 0;
-      unwrappedChain.forEach(p => {
-        rg2_sum += (p.x - avgX)**2 + (p.y - avgY)**2;
-      });
-      const rg2 = rg2_sum / N;
+      const meanX = chainUX.reduce((a,b)=>a+b,0)/chain.length;
+      const meanY = chainUY.reduce((a,b)=>a+b,0)/chain.length;
+      let rg2 = 0;
+      for(let i=0; i<chain.length; i++){
+        rg2 += (chainUX[i]-meanX)**2 + (chainUY[i]-meanY)**2;
+      }
+      rg2 /= chain.length;
       sumRg2 += rg2;
       sumRg += Math.sqrt(rg2);
 
       const r0 = this.initialR0[idx];
-      if (r0) {
-        sumDotProduct += (r_unwrapped.x * r0.x + r_unwrapped.y * r0.y);
-      }
+      sumDotProduct += (r_unwrapped.x * r0.x + r_unwrapped.y * r0.y);
     });
 
-    const avgR2 = validCount > 0 ? sumR2 / validCount : 0;
-    const avgRg2 = validCount > 0 ? sumRg2 / validCount : 0;
-    const avgDot = validCount > 0 ? sumDotProduct / validCount : 0;
-    const initialAvgR2 = this.chains.length > 0 ? this.initialR0SquaredSum / this.chains.length : 1;
+    const N = this.chains.length || 1;
+    const avgR2 = sumR2 / N;
+    const avgRg2 = sumRg2 / N;
+    const avgDot = sumDotProduct / N;
+    const initialAvgR2 = this.initialR0SquaredSum / N || 1;
 
     return {
       steps: this.steps,
       rmsEndToEnd: Math.sqrt(avgR2),
-      meanEndToEnd: validCount > 0 ? sumR / validCount : 0,
+      meanEndToEnd: sumR / N,
       radiusOfGyration: Math.sqrt(avgRg2),
-      meanRadiusOfGyration: validCount > 0 ? sumRg / validCount : 0,
+      meanRadiusOfGyration: sumRg / N,
       successfulMoves: this.successfulMoves,
-      // Note: Acceptance is relative to total individual move attempts (steps * numChains)
-      acceptanceRatio: this.steps > 0 ? this.successfulMoves / (this.steps * this.params.numChains) : 0,
-      autocorrelation: initialAvgR2 > 0 ? avgDot / initialAvgR2 : 0,
+      acceptanceRatio: this.steps > 0 ? this.successfulMoves / (this.steps * N) : 0,
+      autocorrelation: avgDot / initialAvgR2,
       rawAutocorrelation: avgDot,
       isFinished: this.steps >= this.params.maxSteps
     };

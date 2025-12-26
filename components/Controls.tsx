@@ -14,7 +14,7 @@ interface ControlsProps {
 
 const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onTogglePlay, onStop, isPlaying, isFinished }) => {
   return (
-    <div className="space-y-6 bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-full">
+    <div className="space-y-6 bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Simulation Config</h2>
