@@ -89,6 +89,7 @@ const App: React.FC = () => {
     const newParams = { ...params, ...updates };
     setParams(newParams);
     
+    // If lattice/topology changes, recreate the engine (destructive reset)
     if ('latticeSize' in updates || 'numChains' in updates || 'chainLength' in updates || 'obstacleConcentration' in updates) {
       engineRef.current = new SimulationEngine(newParams);
       setDisplayChains(engineRef.current.getChains());
@@ -97,6 +98,11 @@ const App: React.FC = () => {
       lastHistoryUpdateRef.current = 0;
       setStats(engineRef.current.getStats());
       setIsPlaying(false);
+    } else {
+      // If only limits/speed change, just update internal state without reset
+      engineRef.current.updateParams(newParams);
+      // Immediately check stats to update isFinished status in UI
+      setStats(engineRef.current.getStats());
     }
   };
 

@@ -54,12 +54,32 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
             <LineChart data={history.slice(-100)}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="step" hide />
-              <YAxis domain={['auto', 'auto']} fontSize={10} stroke="#475569" />
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }} />
-              <Line type="monotone" dataKey="rms" stroke="#10b981" dot={false} strokeWidth={2} isAnimationActive={false} />
+              <YAxis
+                domain={['auto', 'auto']}
+                fontSize={10}
+                stroke="#475569"
+                tickFormatter={(value) => value.toFixed(3)}
+              />
+              <Tooltip
+                formatter={(value) => value.toFixed(3)}
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: 'none',
+                  borderRadius: '8px'
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="rms"
+                stroke="#10b981"
+                dot={false}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
+
 
         {/* Autocorrelation Chart */}
         <div className="h-48 bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-inner group relative">
@@ -73,12 +93,32 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
             <LineChart data={history.slice(-100)}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="step" hide />
-              <YAxis domain={[0, 1.1]} fontSize={10} stroke="#475569" />
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }} />
-              <Line type="monotone" dataKey="autocorrelation" stroke="#6366f1" dot={false} strokeWidth={2} isAnimationActive={false} />
+              <YAxis
+                domain={[0, 1.1]}
+                fontSize={10}
+                stroke="#475569"
+                tickFormatter={(value) => value.toFixed(3)}
+              />
+              <Tooltip
+                formatter={(value) => value.toFixed(3)}
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: 'none',
+                  borderRadius: '8px'
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="autocorrelation"
+                stroke="#6366f1"
+                dot={false}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
+
       </div>
 
       {/* Detailed Summary Statistics Panel */}

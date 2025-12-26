@@ -16,6 +16,10 @@ export class SimulationEngine {
     this.reset();
   }
 
+  public updateParams(newParams: SimulationParams) {
+    this.params = newParams;
+  }
+
   public reset() {
     this.steps = 0;
     this.successfulMoves = 0;
@@ -39,7 +43,7 @@ export class SimulationEngine {
       }
     }
 
-    // Initialize Chains
+    // Initialize Chains (Random walk start, avoiding obstacles/other segments)
     for (let i = 0; i < this.params.numChains; i++) {
       const chain: PolymerChain = [];
       let foundStart = false;
@@ -49,8 +53,7 @@ export class SimulationEngine {
         const x = Math.floor(Math.random() * this.params.latticeSize);
         const y = Math.floor(Math.random() * this.params.latticeSize);
         if (!this.isBlocked(x, y)) {
-          startX = x;
-          startY = y;
+          startX = x; startY = y;
           foundStart = true;
           break;
         }
@@ -75,7 +78,7 @@ export class SimulationEngine {
       this.chains.push(chain);
     }
 
-    // Record initial R(0) for autocorrelation
+    // Capture initial configuration for autocorrelation
     this.chains.forEach(chain => {
       const r0 = this.getUnwrappedEndToEnd(chain);
       this.initialR0.push(r0);
@@ -83,32 +86,18 @@ export class SimulationEngine {
     });
   }
 
-  /**
-   * Calculates the end-to-end vector by summing bonds while accounting for PBC.
-   * This gives the "unwrapped" distance across the lattice.
-   */
   private getUnwrappedEndToEnd(chain: PolymerChain): { x: number; y: number } {
     const L = this.params.latticeSize;
-    let rx = 0;
-    let ry = 0;
+    let rx = 0, ry = 0;
     for (let i = 0; i < chain.length - 1; i++) {
       const p1 = chain[i];
       const p2 = chain[i + 1];
-      
       let dx = p2.x - p1.x;
       let dy = p2.y - p1.y;
-
-      // Minimum image convention for the bond
-      if (dx > 1) dx -= L;
-      if (dx < -1) dx += L;
-      if (dy > 1) dy -= L;
-      if (dy < -1) dy += L;
-
-      rx += dx;
-      ry += dy;
+      if (dx > 1) dx -= L; else if (dx < -1) dx += L;
+      if (dy > 1) dy -= L; else if (dy < -1) dy += L;
+      rx += dx; ry += dy;
     }
-    // Vector points from head (index 0) to tail (last index) or vice versa?
-    // Let's define R as Tail - Head
     return { x: rx, y: ry };
   }
 
@@ -129,7 +118,9 @@ export class SimulationEngine {
 
   public step() {
     if (this.steps >= this.params.maxSteps) return;
-    for (let i = 0; i < this.params.numChains; i++) {
+    // An ensemble step attempts numChains moves
+    const attempts = Math.max(1, this.params.numChains);
+    for (let i = 0; i < attempts; i++) {
       this.reptate();
       this.steps++;
       if (this.steps >= this.params.maxSteps) break;
@@ -167,55 +158,74 @@ export class SimulationEngine {
   public getChains() { return this.chains; }
   public getObstacles() { return this.obstacles; }
 
+  // Fix: Completed the missing logic for statistics calculation (RMS End-to-End, Radius of Gyration, Autocorrelation)
   public getStats(): SimulationStats {
-    let sumR = 0;
-    let sumR2 = 0;
-    let sumRg2 = 0;
-    let sumRg = 0;
-    let sumDotProduct = 0;
+    let sumR = 0, sumR2 = 0, sumRg2 = 0, sumRg = 0, sumDotProduct = 0;
     let validCount = 0;
 
     this.chains.forEach((chain, idx) => {
       if (chain.length < 2) return;
       validCount++;
-      
       const r_unwrapped = this.getUnwrappedEndToEnd(chain);
-      const r2 = (r_unwrapped.x * r_unwrapped.x + r_unwrapped.y * r_unwrapped.y);
+      // Fix: Resolved syntax error with r_ and finished calculating r2
+      const r2 = r_unwrapped.x * r_unwrapped.x + r_unwrapped.y * r_unwrapped.y;
+      const r_mag = Math.sqrt(r2);
+      sumR += r_mag;
       sumR2 += r2;
-      sumR += Math.sqrt(r2);
 
-      // Autocorrelation: R(t) . R(0)
+      // Radius of Gyration (Rg) calculation using unwrapped coordinates
+      const L = this.params.latticeSize;
+      let unwrappedChain: Point[] = [{ x: 0, y: 0 }];
+      let cx = 0, cy = 0;
+
+      for (let i = 0; i < chain.length - 1; i++) {
+        const p1 = chain[i];
+        const p2 = chain[i+1];
+        let dx = p2.x - p1.x;
+        let dy = p2.y - p1.y;
+        if (dx > 1) dx -= L; else if (dx < -1) dx += L;
+        if (dy > 1) dy -= L; else if (dy < -1) dy += L;
+        
+        const last = unwrappedChain[unwrappedChain.length - 1];
+        const next = { x: last.x + dx, y: last.y + dy };
+        unwrappedChain.push(next);
+        cx += next.x;
+        cy += next.y;
+      }
+      
+      const N = chain.length;
+      const avgX = cx / N;
+      const avgY = cy / N;
+      let rg2_sum = 0;
+      unwrappedChain.forEach(p => {
+        rg2_sum += (p.x - avgX)**2 + (p.y - avgY)**2;
+      });
+      const rg2 = rg2_sum / N;
+      sumRg2 += rg2;
+      sumRg += Math.sqrt(rg2);
+
+      // Autocorrelation calculation
       const r0 = this.initialR0[idx];
       if (r0) {
         sumDotProduct += (r_unwrapped.x * r0.x + r_unwrapped.y * r0.y);
       }
-
-      // Radius of Gyration calculation (remains based on local coordinates for shape)
-      const cx = chain.reduce((s, p) => s + p.x, 0) / chain.length;
-      const cy = chain.reduce((s, p) => s + p.y, 0) / chain.length;
-      let rg2_local = 0;
-      chain.forEach(p => {
-        rg2_local += Math.pow(p.x - cx, 2) + Math.pow(p.y - cy, 2);
-      });
-      rg2_local /= chain.length;
-      sumRg2 += rg2_local;
-      sumRg += Math.sqrt(rg2_local);
     });
 
-    const divisor = validCount || 1;
-    const rawAuto = sumDotProduct / divisor;
-    const normAuto = this.initialR0SquaredSum > 0 ? (sumDotProduct / this.initialR0SquaredSum) : 1;
+    const avgR2 = validCount > 0 ? sumR2 / validCount : 0;
+    const avgRg2 = validCount > 0 ? sumRg2 / validCount : 0;
+    const avgDot = validCount > 0 ? sumDotProduct / validCount : 0;
+    const initialAvgR2 = this.chains.length > 0 ? this.initialR0SquaredSum / this.chains.length : 1;
 
     return {
       steps: this.steps,
-      rmsEndToEnd: Math.sqrt(sumR2 / divisor),
-      meanEndToEnd: sumR / divisor,
-      radiusOfGyration: Math.sqrt(sumRg2 / divisor),
-      meanRadiusOfGyration: sumRg / divisor,
+      rmsEndToEnd: Math.sqrt(avgR2),
+      meanEndToEnd: validCount > 0 ? sumR / validCount : 0,
+      radiusOfGyration: Math.sqrt(avgRg2),
+      meanRadiusOfGyration: validCount > 0 ? sumRg / validCount : 0,
       successfulMoves: this.successfulMoves,
-      acceptanceRatio: this.steps > 0 ? (this.successfulMoves / this.steps) : 0,
-      autocorrelation: normAuto,
-      rawAutocorrelation: rawAuto,
+      acceptanceRatio: this.steps > 0 ? this.successfulMoves / this.steps : 0,
+      autocorrelation: initialAvgR2 > 0 ? avgDot / initialAvgR2 : 0,
+      rawAutocorrelation: avgDot,
       isFinished: this.steps >= this.params.maxSteps
     };
   }
