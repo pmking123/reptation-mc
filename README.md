@@ -41,20 +41,29 @@ In each attempt for a single chain:
 For a system with $M$ chains of length $N$:
 
 ### 1. RMS End-to-End Distance (⟨R²⟩¹ᐟ²)
+
 The instantaneous root-mean-square distance between the head and tail:
+
 $$\text{RMS} = \sqrt{\frac{1}{M} \sum_{i=1}^{M} |\mathbf{R}_i(t)|^2}$$
+
 *Calculation Note:* $\mathbf{R}_i(t)$ is the "unwrapped" vector, accounting for PBC crossings to represent the true physical expansion.
 
 ### 2. Vector Autocorrelation (C(t))
+
 Measures the loss of memory of the initial chain configuration:
+
 $$C(t) = \frac{\sum_{i=1}^{M} \mathbf{R}_i(t) \cdot \mathbf{R}_i(0)}{\sum_{i=1}^{M} \mathbf{R}_i(0) \cdot \mathbf{R}_i(0)}$$
+
 In the reptation regime, this tracks the "tube renewal" time.
 
 ### 3. Radius of Gyration ($R_g$)
+
 Describes the typical "size" of the chain's spatial distribution:
+
 $$R_g^2 = \frac{1}{M} \sum_{i=1}^{M} \left( \frac{1}{N} \sum_{j=1}^{N} (\mathbf{r}_{i,j} - \mathbf{r}_{i,cm})^2 \right)$$
 
 ## 🚀 Key Features
+
 - **Deterministic Chain Length:** Advanced initialization logic guarantees $N$ segments per chain.
 - **Real-time Visualization:** High-performance Canvas rendering of polymer dynamics.
 - **AI Physicist Insight:** Gemini 3 analyzes ensemble averages to identify scaling regimes and relaxation times.
