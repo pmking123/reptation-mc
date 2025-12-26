@@ -52,27 +52,35 @@ const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onToggle
         <ControlItem 
           label="Max Steps Limit" 
           value={params.maxSteps} 
-          min={1000} max={500000} step={1000}
-          displayValue={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v.toString()}
+          min={1000} max={5000000} step={1000}
+          displayValue={(v) => {
+            if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+            if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
+            return v.toString();
+          }}
           onChange={(v) => onChange({ maxSteps: v })}
+          tooltip="Total Monte Carlo steps to run. A limit of 5 million steps allows for significant chain relaxation and improved statistical convergence."
         />
         <ControlItem 
           label="Lattice Size (LxL)" 
           value={params.latticeSize} 
           min={20} max={100} step={5}
           onChange={(v) => onChange({ latticeSize: v })}
+          tooltip="Dimensions of the periodic simulation box. Larger boxes minimize finite-size effects but increase computational requirements."
         />
         <ControlItem 
           label="Number of Chains" 
           value={params.numChains} 
           min={1} max={100} step={1}
           onChange={(v) => onChange({ numChains: v })}
+          tooltip="Total number of polymers in the system. Increasing this shifts the simulation toward a concentrated regime where inter-chain entanglements occur."
         />
         <ControlItem 
           label="Chain Length (N)" 
           value={params.chainLength} 
           min={2} max={100} step={1}
           onChange={(v) => onChange({ chainLength: v })}
+          tooltip="Segments per chain. Reptation theory predicts relaxation times scale with N³. Longer chains exhibit more pronounced 'snake-like' dynamics."
         />
         <ControlItem 
           label="Obstacle Concentration" 
@@ -80,12 +88,14 @@ const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onToggle
           min={0} max={0.4} step={0.01}
           displayValue={(v) => `${(v * 100).toFixed(0)}%`}
           onChange={(v) => onChange({ obstacleConcentration: v })}
+          tooltip="Density of fixed, impenetrable barriers. These define the 'tube' through which chains must reptate, significantly slowing diffusion."
         />
         <ControlItem 
           label="Simulation Speed" 
           value={params.simulationSpeed} 
           min={1} max={500} step={5}
           onChange={(v) => onChange({ simulationSpeed: v })}
+          tooltip="Number of Monte Carlo steps performed per visual frame. Increase to gather data faster; decrease to observe individual segment movements."
         />
       </div>
 
@@ -106,12 +116,26 @@ interface ControlItemProps {
   step: number;
   onChange: (val: number) => void;
   displayValue?: (val: number) => string;
+  tooltip?: string;
 }
 
-const ControlItem: React.FC<ControlItemProps> = ({ label, value, min, max, step, onChange, displayValue }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+const ControlItem: React.FC<ControlItemProps> = ({ label, value, min, max, step, onChange, displayValue, tooltip }) => (
+  <div className="group relative space-y-2">
+    <div className="flex justify-between items-center">
+      <div className="flex items-center gap-1.5">
+        <label className="text-sm font-medium text-slate-300">{label}</label>
+        {tooltip && (
+          <div className="relative inline-block group/info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 hover:text-emerald-400 cursor-help transition-colors">
+              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+            </svg>
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/info:block w-48 p-2 bg-slate-900 text-slate-200 text-[10px] leading-tight rounded border border-slate-700 shadow-xl z-50 pointer-events-none">
+              {tooltip}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+            </div>
+          </div>
+        )}
+      </div>
       <span className="text-sm font-mono text-emerald-400 font-bold">
         {displayValue ? displayValue(value) : value}
       </span>

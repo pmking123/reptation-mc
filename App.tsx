@@ -13,7 +13,7 @@ const INITIAL_PARAMS: SimulationParams = {
   chainLength: 15,
   obstacleConcentration: 0.1,
   simulationSpeed: 50,
-  maxSteps: 50000
+  maxSteps: 1000000
 };
 
 const App: React.FC = () => {
@@ -35,7 +35,6 @@ const App: React.FC = () => {
 
   // Initialize engineRef with a concrete instance
   const engineRef = useRef<SimulationEngine>(new SimulationEngine(INITIAL_PARAMS));
-  // Fix: Added null as initial value to satisfy TypeScript's useRef definition (Error on line 38/37)
   const requestRef = useRef<number | null>(null);
   const lastHistoryUpdateRef = useRef<number>(0);
 
@@ -92,6 +91,7 @@ const App: React.FC = () => {
       lastHistoryUpdateRef.current = 0;
       setStats(engineRef.current.getStats());
       setIsPlaying(false);
+      // We explicitly DO NOT clear explanation here to satisfy "persistence" request
     }
   };
 
@@ -103,17 +103,56 @@ const App: React.FC = () => {
     setHistory([]);
     lastHistoryUpdateRef.current = 0;
     setIsPlaying(false);
+    // Explanation persists across resets
   };
 
   const handleStop = () => {
     setIsPlaying(false);
-    // When manually stopped, we can consider the data frozen
+  };
+
+  const downloadReport = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `reptation-lab-report-${timestamp}.md`;
+    const content = `# Polymer Reptation Lab Report
+Generated on: ${new Date().toLocaleString()}
+
+## Simulation Parameters
+- Lattice Size: ${params.latticeSize}x${params.latticeSize}
+- Number of Chains: ${params.numChains}
+- Chain Length (N): ${params.chainLength}
+- Obstacle Concentration: ${(params.obstacleConcentration * 100).toFixed(1)}%
+- Max Steps Targeted: ${params.maxSteps.toLocaleString()}
+
+## Summary Statistics
+- Total Steps: ${stats.steps.toLocaleString()}
+- Successful Moves: ${stats.successfulMoves.toLocaleString()}
+- Acceptance Ratio: ${(stats.acceptanceRatio * 100).toFixed(4)}%
+- Mean End-to-End <R>: ${stats.meanEndToEnd.toFixed(4)}
+- RMS End-to-End <R²>¹/²: ${stats.rmsEndToEnd.toFixed(4)}
+- Mean Radius of Gyration <Rg>: ${stats.meanRadiusOfGyration.toFixed(4)}
+- RMS Radius of Gyration <Rg²>¹/²: ${stats.radiusOfGyration.toFixed(4)}
+
+## AI Physical Analysis
+${explanation}
+
+---
+Polymer Reptation Lab Simulator v1.1
+`;
+
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const getGeminiInsight = async () => {
     setIsLoadingInsight(true);
     try {
-      // Use the injected API_KEY environment variable. Create a new instance for each call.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Perform a high-level statistical analysis for a polymer physicist of this simulation:
       - Lattice Size: ${params.latticeSize}
@@ -131,7 +170,6 @@ const App: React.FC = () => {
         model: 'gemini-3-flash-preview',
         contents: prompt
       });
-      // Correctly access response.text property
       setExplanation(response.text || "No insights available.");
     } catch (err) {
       console.error(err);
@@ -166,7 +204,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Visualizer & Expanded Stats */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           <LatticeCanvas 
             chains={displayChains} 
@@ -181,16 +218,27 @@ const App: React.FC = () => {
                 <h3 className="text-indigo-400 font-bold flex items-center gap-2">
                   <span className="text-lg">⚛️</span> Physics Summary Analysis
                 </h3>
-                <button onClick={() => setExplanation('')} className="text-slate-500 hover:text-white text-xs">Close</button>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={downloadReport}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+                    title="Download Markdown Report"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Report
+                  </button>
+                  <button onClick={() => setExplanation('')} className="text-slate-500 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
               </div>
-              <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm font-light">
+              <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm font-light prose prose-invert max-w-none">
                 {explanation}
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Column: Controls & Legend */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="p-5 bg-slate-900/80 rounded-xl border border-slate-800 shadow-inner">
             <h3 className="font-bold text-slate-300 mb-3 text-xs uppercase tracking-widest">Quick Legend</h3>
