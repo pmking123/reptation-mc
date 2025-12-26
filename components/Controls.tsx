@@ -50,7 +50,7 @@ const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onToggle
 
       <div className="grid grid-cols-1 gap-4">
         <ControlItem 
-          label="Max Steps Limit" 
+          label="Max Sweeps Limit" 
           value={params.maxSteps} 
           min={1000} max={5000000} step={1000}
           displayValue={(v) => {
@@ -59,7 +59,7 @@ const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onToggle
             return v.toString();
           }}
           onChange={(v) => onChange({ maxSteps: v })}
-          tooltip="Total Monte Carlo steps to run. A limit of 5 million steps allows for significant chain relaxation and improved statistical convergence."
+          tooltip="Total Monte Carlo sweeps (full ensemble updates) to run. Each sweep represents one move attempt per chain."
         />
         <ControlItem 
           label="Lattice Size (LxL)" 
@@ -95,13 +95,13 @@ const Controls: React.FC<ControlsProps> = ({ params, onChange, onReset, onToggle
           value={params.simulationSpeed} 
           min={1} max={500} step={5}
           onChange={(v) => onChange({ simulationSpeed: v })}
-          tooltip="Number of Monte Carlo steps performed per visual frame. Increase to gather data faster; decrease to observe individual segment movements."
+          tooltip="Number of Monte Carlo sweeps performed per visual frame. Increase to gather data faster; decrease to observe individual segment movements."
         />
       </div>
 
       <div className="pt-4 border-t border-slate-700">
         <p className="text-xs text-slate-400 italic">
-          * Reptation: One end moves to a neighbor, segments follow. Max steps helps ensure ensemble average convergence.
+          * Reptation: One end moves to a neighbor, segments follow. Max sweeps helps ensure ensemble average convergence.
         </p>
       </div>
     </div>

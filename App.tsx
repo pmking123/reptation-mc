@@ -164,6 +164,7 @@ Polymer Reptation Lab Simulator v1.1
   const getGeminiInsight = async () => {
     setIsLoadingInsight(true);
     try {
+      // Fix: Initialize GoogleGenAI instance right before making the call as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Perform a high-level statistical analysis for a polymer physicist of this simulation:
       - Lattice Size: ${params.latticeSize}
@@ -177,8 +178,9 @@ Polymer Reptation Lab Simulator v1.1
       
       Focus on scaling laws, the impact of obstacle concentration on reptation tube width, and specifically discuss the relaxation time indicated by the autocorrelation decay. Does the correlation drop toward zero, or is the chain still "remembering" its initial configuration?`;
 
+      // Fix: Used gemini-3-pro-preview for complex STEM analysis task
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-preview',
         contents: prompt
       });
       setExplanation(response.text || "No insights available.");

@@ -24,7 +24,7 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
         <StatCard 
-          label="Progress" 
+          label="Progress (Sweeps)" 
           value={stats.steps.toLocaleString()} 
           subValue={`Target: ${maxSteps.toLocaleString()}`} 
         />
@@ -60,8 +60,9 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
                 stroke="#475569"
                 tickFormatter={(value) => value.toFixed(3)}
               />
+              {/* Fix: Added type check to handle cases where value might not be a number, resolving TS toFixed error */}
               <Tooltip
-                formatter={(value) => value.toFixed(3)}
+                formatter={(value: any) => (typeof value === 'number' ? value.toFixed(3) : value)}
                 contentStyle={{
                   backgroundColor: '#1e293b',
                   border: 'none',
@@ -99,8 +100,9 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
                 stroke="#475569"
                 tickFormatter={(value) => value.toFixed(3)}
               />
+              {/* Fix: Added type check to handle cases where value might not be a number, resolving TS toFixed error */}
               <Tooltip
-                formatter={(value) => value.toFixed(3)}
+                formatter={(value: any) => (typeof value === 'number' ? value.toFixed(3) : value)}
                 contentStyle={{
                   backgroundColor: '#1e293b',
                   border: 'none',
@@ -133,7 +135,7 @@ const Stats: React.FC<StatsProps> = ({ stats, history, maxSteps }) => {
           <DetailStat label="Norm Autocorr" value={stats.autocorrelation.toFixed(4)} />
           <DetailStat label={<>Raw ⟨R(t)·R(0)⟩</>} value={stats.rawAutocorrelation.toFixed(2)} />
           <DetailStat label="Acceptance" value={(stats.acceptanceRatio).toFixed(4)} />
-          <DetailStat label="Total Steps" value={stats.steps.toLocaleString()} />
+          <DetailStat label="Total Sweeps" value={stats.steps.toLocaleString()} />
         </div>
       </div>
     </div>

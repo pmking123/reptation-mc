@@ -43,39 +43,54 @@ export class SimulationEngine {
       }
     }
 
-    // Initialize Chains (Random walk start, avoiding obstacles/other segments)
+    // Initialize Chains with Guaranteed Length
     for (let i = 0; i < this.params.numChains; i++) {
-      const chain: PolymerChain = [];
-      let foundStart = false;
-      let startX = 0, startY = 0;
-      
+      let chainFound = false;
+      // Retry chain placement up to 100 times if it gets stuck
       for (let attempt = 0; attempt < 100; attempt++) {
-        const x = Math.floor(Math.random() * this.params.latticeSize);
-        const y = Math.floor(Math.random() * this.params.latticeSize);
-        if (!this.isBlocked(x, y)) {
-          startX = x; startY = y;
-          foundStart = true;
-          break;
+        const tempChain: PolymerChain = [];
+        const localOccupied: string[] = [];
+        
+        const startX = Math.floor(Math.random() * this.params.latticeSize);
+        const startY = Math.floor(Math.random() * this.params.latticeSize);
+        
+        if (this.isBlocked(startX, startY)) continue;
+        
+        tempChain.push({ x: startX, y: startY });
+        const startKey = `${startX},${startY}`;
+        this.occupied.add(startKey);
+        localOccupied.push(startKey);
+
+        let growthFailed = false;
+        for (let j = 1; j < this.params.chainLength; j++) {
+          const last = tempChain[tempChain.length - 1];
+          const neighbors = this.getNeighbors(last.x, last.y).filter(p => !this.isBlocked(p.x, p.y));
+          
+          if (neighbors.length > 0) {
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+            tempChain.push(next);
+            const nextKey = `${next.x},${next.y}`;
+            this.occupied.add(nextKey);
+            localOccupied.push(nextKey);
+          } else {
+            growthFailed = true;
+            break;
+          }
         }
-      }
 
-      if (!foundStart) continue;
-
-      chain.push({ x: startX, y: startY });
-      this.occupied.add(`${startX},${startY}`);
-
-      for (let j = 1; j < this.params.chainLength; j++) {
-        const last = chain[chain.length - 1];
-        const neighbors = this.getNeighbors(last.x, last.y).filter(p => !this.isBlocked(p.x, p.y));
-        if (neighbors.length > 0) {
-          const next = neighbors[Math.floor(Math.random() * neighbors.length)];
-          chain.push(next);
-          this.occupied.add(`${next.x},${next.y}`);
+        if (!growthFailed && tempChain.length === this.params.chainLength) {
+          this.chains.push(tempChain);
+          chainFound = true;
+          break;
         } else {
-          break;
+          // Cleanup occupied markers if this chain attempt failed
+          localOccupied.forEach(k => this.occupied.delete(k));
         }
       }
-      this.chains.push(chain);
+      
+      if (!chainFound) {
+        console.warn(`Could not place chain ${i} after 100 attempts. The lattice might be too crowded.`);
+      }
     }
 
     // Capture initial configuration for autocorrelation
@@ -118,13 +133,16 @@ export class SimulationEngine {
 
   public step() {
     if (this.steps >= this.params.maxSteps) return;
-    // An ensemble step attempts numChains moves
+    
+    // In Monte Carlo terminology, 1 "Step" (or Sweep) = N attempts where N is the number of chains.
+    // This makes the time limit more physically intuitive.
     const attempts = Math.max(1, this.params.numChains);
     for (let i = 0; i < attempts; i++) {
       this.reptate();
-      this.steps++;
-      if (this.steps >= this.params.maxSteps) break;
     }
+    
+    // Increment steps once per sweep
+    this.steps++;
   }
 
   private reptate() {
@@ -158,7 +176,6 @@ export class SimulationEngine {
   public getChains() { return this.chains; }
   public getObstacles() { return this.obstacles; }
 
-  // Fix: Completed the missing logic for statistics calculation (RMS End-to-End, Radius of Gyration, Autocorrelation)
   public getStats(): SimulationStats {
     let sumR = 0, sumR2 = 0, sumRg2 = 0, sumRg = 0, sumDotProduct = 0;
     let validCount = 0;
@@ -167,13 +184,11 @@ export class SimulationEngine {
       if (chain.length < 2) return;
       validCount++;
       const r_unwrapped = this.getUnwrappedEndToEnd(chain);
-      // Fix: Resolved syntax error with r_ and finished calculating r2
       const r2 = r_unwrapped.x * r_unwrapped.x + r_unwrapped.y * r_unwrapped.y;
       const r_mag = Math.sqrt(r2);
       sumR += r_mag;
       sumR2 += r2;
 
-      // Radius of Gyration (Rg) calculation using unwrapped coordinates
       const L = this.params.latticeSize;
       let unwrappedChain: Point[] = [{ x: 0, y: 0 }];
       let cx = 0, cy = 0;
@@ -204,7 +219,6 @@ export class SimulationEngine {
       sumRg2 += rg2;
       sumRg += Math.sqrt(rg2);
 
-      // Autocorrelation calculation
       const r0 = this.initialR0[idx];
       if (r0) {
         sumDotProduct += (r_unwrapped.x * r0.x + r_unwrapped.y * r0.y);
@@ -223,7 +237,8 @@ export class SimulationEngine {
       radiusOfGyration: Math.sqrt(avgRg2),
       meanRadiusOfGyration: validCount > 0 ? sumRg / validCount : 0,
       successfulMoves: this.successfulMoves,
-      acceptanceRatio: this.steps > 0 ? this.successfulMoves / this.steps : 0,
+      // Note: Acceptance is relative to total individual move attempts (steps * numChains)
+      acceptanceRatio: this.steps > 0 ? this.successfulMoves / (this.steps * this.params.numChains) : 0,
       autocorrelation: initialAvgR2 > 0 ? avgDot / initialAvgR2 : 0,
       rawAutocorrelation: avgDot,
       isFinished: this.steps >= this.params.maxSteps
