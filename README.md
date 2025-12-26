@@ -14,14 +14,16 @@ The simulation implements the **Reptation Model** to describe the thermal motion
 
 For a system with $M$ chains of length $N$:
 
-### 1. RMS End-to-End Distance ($\langle R^2 \rangle^{1/2}$)
+### 1. RMS End-to-End Distance (⟨R²⟩¹ᐟ²)
+
 The instantaneous root-mean-square distance between the head and tail of all chains:
 
 $$\text{RMS} = \sqrt{\frac{1}{M} \sum_{i=1}^{M} |\mathbf{R}_i(t)|^2}$$
 
 *Calculation Note:* $\mathbf{R}_i(t)$ is the "unwrapped" vector, meaning it accounts for crossings of the Periodic Boundary Conditions to represent the true physical length of the chain.
 
-### 2. Vector Autocorrelation ($C(t)$)
+### 2. Vector Autocorrelation (C(t))
+
 Measures the loss of memory of the initial chain configuration. It is the ensemble-averaged dot product of the current end-to-end vector with the initial vector, normalized:
 
 $$C(t) = \frac{\sum_{i=1}^{M} \mathbf{R}_i(t) \cdot \mathbf{R}_i(0)}{\sum_{i=1}^{M} \mathbf{R}_i(0) \cdot \mathbf{R}_i(0)}$$
