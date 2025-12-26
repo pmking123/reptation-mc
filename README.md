@@ -73,7 +73,7 @@ $$R_g^2 = \frac{1}{M} \sum_{i=1}^{M} \left( \frac{1}{N} \sum_{j=1}^{N} (\mathbf{
 
 ## 💻 Running Locally
 
-To run this laboratory simulation on your local machine, follow these steps:
+To run this simulation on your local machine, follow these steps:
 
 ### 1. Prerequisites
 - [Node.js](https://nodejs.org/) (v18 or higher recommended)
