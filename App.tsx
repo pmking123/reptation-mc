@@ -27,13 +27,14 @@ const App: React.FC = () => {
     meanRadiusOfGyration: 0,
     successfulMoves: 0, 
     acceptanceRatio: 0,
+    autocorrelation: 1,
+    rawAutocorrelation: 0,
     isFinished: false 
   });
-  const [history, setHistory] = useState<{ step: number; rms: number; rg: number }[]>([]);
+  const [history, setHistory] = useState<{ step: number; rms: number; rg: number; autocorrelation: number }[]>([]);
   const [explanation, setExplanation] = useState<string>('');
   const [isLoadingInsight, setIsLoadingInsight] = useState(false);
 
-  // Initialize engineRef with a concrete instance
   const engineRef = useRef<SimulationEngine>(new SimulationEngine(INITIAL_PARAMS));
   const requestRef = useRef<number | null>(null);
   const lastHistoryUpdateRef = useRef<number>(0);
@@ -51,7 +52,6 @@ const App: React.FC = () => {
         return;
       }
 
-      // Step the simulation based on speed
       for (let i = 0; i < params.simulationSpeed; i++) {
         engineRef.current.step();
       }
@@ -60,9 +60,16 @@ const App: React.FC = () => {
       setStats(updatedStats);
       setDisplayChains([...engineRef.current.getChains()]);
 
-      // Update history
       if (updatedStats.steps - lastHistoryUpdateRef.current >= 500) {
-        setHistory(prev => [...prev, { step: updatedStats.steps, rms: updatedStats.rmsEndToEnd, rg: updatedStats.radiusOfGyration }].slice(-100));
+        setHistory(prev => [
+          ...prev, 
+          { 
+            step: updatedStats.steps, 
+            rms: updatedStats.rmsEndToEnd, 
+            rg: updatedStats.radiusOfGyration, 
+            autocorrelation: updatedStats.autocorrelation 
+          }
+        ].slice(-200));
         lastHistoryUpdateRef.current = updatedStats.steps;
       }
     }
@@ -82,7 +89,6 @@ const App: React.FC = () => {
     const newParams = { ...params, ...updates };
     setParams(newParams);
     
-    // If structural params change, reset the engine
     if ('latticeSize' in updates || 'numChains' in updates || 'chainLength' in updates || 'obstacleConcentration' in updates) {
       engineRef.current = new SimulationEngine(newParams);
       setDisplayChains(engineRef.current.getChains());
@@ -91,7 +97,6 @@ const App: React.FC = () => {
       lastHistoryUpdateRef.current = 0;
       setStats(engineRef.current.getStats());
       setIsPlaying(false);
-      // We explicitly DO NOT clear explanation here to satisfy "persistence" request
     }
   };
 
@@ -103,7 +108,6 @@ const App: React.FC = () => {
     setHistory([]);
     lastHistoryUpdateRef.current = 0;
     setIsPlaying(false);
-    // Explanation persists across resets
   };
 
   const handleStop = () => {
@@ -123,14 +127,15 @@ Generated on: ${new Date().toLocaleString()}
 - Obstacle Concentration: ${(params.obstacleConcentration * 100).toFixed(1)}%
 - Max Steps Targeted: ${params.maxSteps.toLocaleString()}
 
-## Summary Statistics
+## Summary Statistics (Ensemble Averages)
 - Total Steps: ${stats.steps.toLocaleString()}
 - Successful Moves: ${stats.successfulMoves.toLocaleString()}
 - Acceptance Ratio: ${(stats.acceptanceRatio * 100).toFixed(4)}%
-- Mean End-to-End <R>: ${stats.meanEndToEnd.toFixed(4)}
-- RMS End-to-End <R²>¹/²: ${stats.rmsEndToEnd.toFixed(4)}
-- Mean Radius of Gyration <Rg>: ${stats.meanRadiusOfGyration.toFixed(4)}
-- RMS Radius of Gyration <Rg²>¹/²: ${stats.radiusOfGyration.toFixed(4)}
+- Mean End-to-End ⟨R⟩: ${stats.meanEndToEnd.toFixed(4)}
+- RMS End-to-End ⟨R²⟩½: ${stats.rmsEndToEnd.toFixed(4)}
+- RMS Radius of Gyration ⟨Rg²⟩½: ${stats.radiusOfGyration.toFixed(4)}
+- Autocorrelation ⟨R(t)·R(0)⟩ / ⟨R(0)²⟩: ${stats.autocorrelation.toFixed(4)}
+- Raw Autocorrelation ⟨R(t)·R(0)⟩: ${stats.rawAutocorrelation.toFixed(4)}
 
 ## AI Physical Analysis
 ${explanation}
@@ -161,10 +166,10 @@ Polymer Reptation Lab Simulator v1.1
       - Obstacle Concentration: ${params.obstacleConcentration * 100}%
       - Total Steps: ${stats.steps}
       - RMS End-to-End distance: ${stats.rmsEndToEnd.toFixed(4)}
-      - Mean Radius of Gyration: ${stats.meanRadiusOfGyration.toFixed(4)}
+      - End-to-End Vector Autocorrelation: ${stats.autocorrelation.toFixed(4)}
       - Acceptance Ratio: ${stats.acceptanceRatio.toFixed(4)}
       
-      Focus on scaling laws, the impact of obstacle concentration on reptation tube width, and whether the current RMS values suggest a relaxed chain or if the simulation should run longer for equilibration.`;
+      Focus on scaling laws, the impact of obstacle concentration on reptation tube width, and specifically discuss the relaxation time indicated by the autocorrelation decay. Does the correlation drop toward zero, or is the chain still "remembering" its initial configuration?`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',

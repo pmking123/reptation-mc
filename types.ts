@@ -23,5 +23,7 @@ export interface SimulationStats {
   meanRadiusOfGyration: number;
   successfulMoves: number;
   acceptanceRatio: number;
+  autocorrelation: number; // Normalized: <R(t).R(0)> / <R(0)^2>
+  rawAutocorrelation: number; // Raw: <R(t).R(0)>
   isFinished: boolean;
 }
