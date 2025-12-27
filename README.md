@@ -1,6 +1,6 @@
 # Polymer Reptation Lab - Monte Carlo Simulator
 
-A high-performance, web-based visualization and analysis tool for **Polymer Reptation Monte Carlo (MC) Simulations**. This application simulates the movement of polymer chains within a crowded environment (quenched obstacles) on a 2D square lattice using Periodic Boundary Conditions (PBC).
+A high-performance, web-based visualization and analysis tool for **Polymer Reptation Monte Carlo (MC) Simulations**. This application simulates the movement of polymer chains within a crowded environment using a lattice-based Monte Carlo approach.
 
 ## ⚛️ Physical Model
 
@@ -18,7 +18,7 @@ The simulator employs a lattice-based Monte Carlo approach with the following st
 - **Obstacle Placement:** Static obstacles are randomly placed until the target concentration is reached. These sites are "quenched" and remain impassable throughout the simulation.
 - **Chain Growth (Guaranteed Uniform Length):** 
   - Each chain is grown segment-by-segment from a random starting point.
-  - To ensure every chain has an identical length $N$, the algorithm uses a **Grow-or-Retry** strategy. If a chain becomes trapped before reaching length $N$, it is discarded, and the growth process restarts from a new random location.
+  - To ensure every chain has an identical length $N$, the algorithm uses a **Grow-or-Retry** strategy. If a chain becomes trapped before reaching length $N$, it is discarded, and the growth process restarts.
 
 ### 2. The Reptation Step (Monte Carlo Move)
 In each attempt for a single chain:
@@ -41,16 +41,82 @@ In each attempt for a single chain:
 For a system with $M$ chains of length $N$:
 
 ### 1. RMS End-to-End Distance (⟨R²⟩¹ᐟ²)
-The instantaneous root-mean-square distance between the head and tail.
+
+The instantaneous root-mean-square distance between the head and tail:
+
+$$\text{RMS} = \sqrt{\frac{1}{M} \sum_{i=1}^{M} |\mathbf{R}_i(t)|^2}$$
+
+*Calculation Note:* $\mathbf{R}_i(t)$ is the "unwrapped" vector, accounting for PBC crossings to represent the true physical expansion.
 
 ### 2. Vector Autocorrelation (C(t))
-Measures the loss of memory of the initial chain configuration.
 
-## 💻 Running Locally (Web Version)
+Measures the loss of memory of the initial chain configuration:
 
-1. **Install:** `npm install vite react react-dom recharts @google/genai`
-2. **Key:** Add `VITE_API_KEY=your_key` to a `.env` file.
-3. **Start:** `npx vite`
+$$C(t) = \frac{\sum_{i=1}^{M} \mathbf{R}_i(t) \cdot \mathbf{R}_i(0)}{\sum_{i=1}^{M} \mathbf{R}_i(0) \cdot \mathbf{R}_i(0)}$$
+
+In the reptation regime, this tracks the "tube renewal" time.
+
+### 3. Radius of Gyration ($R_g$)
+
+Describes the typical "size" of the chain's spatial distribution:
+
+$$R_g^2 = \frac{1}{M} \sum_{i=1}^{M} \left( \frac{1}{N} \sum_{j=1}^{N} (\mathbf{r}_{i,j} - \mathbf{r}_{i,cm})^2 \right)$$
+
+## 🚀 Key Features
+
+- **Deterministic Chain Length:** Advanced initialization logic guarantees $N$ segments per chain.
+- **Real-time Visualization:** High-performance Canvas rendering of polymer dynamics.
+- **AI Physicist Insight:** Gemini 3 analyzes ensemble averages to identify scaling regimes and relaxation times.
+- **Data Export:** Generate comprehensive Markdown lab reports for documentation.
+
+---
+
+## 💻 Running Locally
+
+To run this simulation on your local machine, follow these steps:
+
+### 1. Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- A [Gemini API Key](https://aistudio.google.com/app/apikey) for the AI analysis features.
+
+### 2. Installation
+Clone or download this repository and install the dependencies:
+```bash
+# Initialize npm if you haven't already
+npm init -y
+
+# Install required libraries
+npm install vite react react-dom recharts @google/genai @types/react @types/react-dom
+```
+
+### 3. Environment Setup
+The app uses `process.env.API_KEY` for Gemini integration. Create a `.env` file in the project root:
+```env
+VITE_API_KEY=your_gemini_api_key_here
+```
+
+### 4. Vite Configuration
+Create a `vite.config.ts` file in the root directory to bridge the environment variables to the app:
+```typescript
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    plugins: [react()],
+    define: {
+      'process.env.API_KEY': JSON.stringify(env.VITE_API_KEY)
+    }
+  };
+});
+```
+
+### 5. Start Development Server
+```bash
+npx vite
+```
+The app will be available at `http://localhost:5173`.
 
 ---
 Polymer Reptation Lab Simulator v1.1
