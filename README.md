@@ -118,5 +118,35 @@ npx vite
 ```
 The app will be available at `http://localhost:5173`.
 
+
+
+## 🐍 Standalone Python Script
+
+For users who prefer a native desktop application or do not wish to use the web-based interface, a standalone Python version is included.
+
+### Requirements
+- **Python 3.8+**
+- **Tkinter** (usually included with Python)
+- **Google GenAI SDK** (optional, for AI analysis)
+
+### Quick Start
+
+1.  **Install Python**: Download from [python.org](https://www.python.org/). Ensure you check "Add Python to PATH" during installation.
+2.  **Install Dependencies**:
+    Open your terminal or command prompt and run:
+    ```bash
+    pip install google-genai
+    ```
+3.  **Run the Simulator**:
+    Navigate to the project directory and run:
+    ```bash
+    python reptation_sim.py
+    ```
+
+### Python Features
+- **Native GUI**: Built with Tkinter for fast performance.
+- **Real-time Plotting**: Watch RMS end-to-end distance and autocorrelation evolve live.
+- **AI Integration**: Click "Start" -> "Stop & Analyze" -> "Analyze with AI" to get physics insights (requires API Key).
+
 ---
 Polymer Reptation Lab Simulator v1.1
